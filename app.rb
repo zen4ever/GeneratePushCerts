@@ -11,15 +11,19 @@ KEYCHAIN = config['keychain']
 DOWNLOAD_DIR = config['download_dir']
 CERT_DIR = config['cert_dir']
 TEAM = config['team']
+ENVIRONMENT = config['env']
+INCLUDE = config['include']
 
 APP_IDS_URL = "https://developer.apple.com/ios/manage/bundles/index.action"
 RSA_FILE = '/tmp/push_notification.key'
 CERT_REQUEST_FILE = '/tmp/CertificateSigningRequest.certSigningRequest'
-DOWNLOADED_CERT_FILE = "#{DOWNLOAD_DIR}aps_production_identity.cer"
+if ENVIRONMENT == "Production"
+    DOWNLOADED_CERT_FILE = "#{DOWNLOAD_DIR}aps_production_identity.cer"
+else
+    DOWNLOADED_CERT_FILE = "#{DOWNLOAD_DIR}aps_developer_identity.cer"
+end
 P12_FILE = '/tmp/out.p12'
 PEM_FILE = '/tmp/out.pem'
-
-END_WITH = 'FanFB' #You may want to modify this and this line: if aaid.end_with?(END_WITH) (currently right around line 60)
 
 WAIT_TO = 180 #3 mins
 
@@ -65,12 +69,12 @@ def main
         aaid = name.text.strip
       end
 
-      if aaid.end_with?(END_WITH)
-        if tds[1].text.include?('Enabled for Production')
+      if aaid.include?(INCLUDE)
+        if tds[1].text.include?("Enabled for #{ENVIRONMENT}")
           puts "#{aaid} already enabled. Skipping..."
-        elsif tds[1].text.include?('Configurable for Production') #too be safe, generate new Keychain everytime
+        elsif tds[1].text.include?("Configurable for #{ENVIRONMENT}") #too be safe, generate new Keychain everytime
           puts "Configuring certificate for #{aaid}..."
-          tds[4].a.click #'Configure' link
+          browser.goto(tds.a.href)
           configure_for_prod(browser, aaid) #new configure page
         end
       end
@@ -85,9 +89,14 @@ end
 def configure_for_prod(browser, app)
   pem_file = CERT_DIR + app + '.pem'
 
-  kcm = KeychainManager.new(KEYCHAIN)
-  kcm.delete if kcm.exists? #start fresh
-  kcm.create; #puts "creating new keychain for #{app}"
+  kcm = KeychainManager.new("#{KEYCHAIN}_#{ENVIRONMENT}")
+
+  if ENVIRONMENT == "Production"
+      kcm.delete if kcm.exists? #start fresh
+      kcm.create; #puts "creating new keychain for #{app}"
+  else
+      kcm.create if !kcm.exists?; # create keychain if it doesn't exist
+  end
 
   kcm.import_rsa_key(RSA_FILE); #puts "importing RSA..."
 
@@ -98,12 +107,19 @@ def configure_for_prod(browser, app)
   kcm.export_identities(P12_FILE)
   KeychainManager.convert_p12_to_pem(P12_FILE, pem_file); puts "exporting #{pem_file}"
 
-  kcm.delete
+  if ENVIRONMENT == "Production"
+      kcm.delete
+  end
 end
 
 def configure_cert(browser, app)
   browser.checkbox(id: 'enablePush').click() #enable configure buttons
-  browser.button(id: 'aps-assistant-btn-prod-en').click() #configure button
+
+  if ENVIRONMENT == "Production"
+      browser.button(id: 'aps-assistant-btn-prod-en').click() #configure button
+  else
+      browser.button(id: 'aps-assistant-btn-dev-en').click() #configure button
+  end
 
   Watir::Wait.until { browser.body.text.include?('Generate a Certificate Signing Request') }
 

@@ -4,4 +4,6 @@
   keychain: Push_Notifcations
   download_dir: /Users/jprichardson/Downloads/
   cert_dir: /Users/jprichardson/Desktop/PushCerts/
-  team: yourteamname
+  team: yourteamname # From dropdown list on 'Select your team' page
+  env: Production # Development or Production
+  include: somepartofappid
