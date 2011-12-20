@@ -89,7 +89,7 @@ end
 def configure_for_prod(browser, app)
   pem_file = CERT_DIR + app + '.pem'
 
-  kcm = KeychainManager.new("#{KEYCHAIN}_#{ENVIRONMENT}")
+  kcm = KeychainManager.new("#{KEYCHAIN}_#{ENVIRONMENT}_#{app}")
 
   if ENVIRONMENT == "Production"
       kcm.delete if kcm.exists? #start fresh
